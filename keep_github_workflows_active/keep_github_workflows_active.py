@@ -23,7 +23,7 @@ if lib_detect_testenv.is_testenv_active():
         from github_credentials import github_token, owner  # noqa
 
 
-def enable_all_workflows(owner: str, github_token: str):
+def enable_all_workflows(owner: str, github_token: str) -> None:
     """
     :param owner:
     :param github_token:
