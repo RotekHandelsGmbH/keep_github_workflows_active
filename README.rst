@@ -71,10 +71,11 @@ Ensure the access key has the following permissions:
 - Action: Read/Write
 - Metadata: Read
 
-Token Details
--------------
+Test Token Details
+------------------
 
-The current token is valid until 2025-01-19 and needs to be renewed annually.
+The current test token is valid until 2025-01-19 and needs to be renewed annually.
+
 
 Token Storage for testing
 -------------------------

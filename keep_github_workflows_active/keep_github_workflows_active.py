@@ -20,7 +20,7 @@ if lib_detect_testenv.is_testenv_active():
     else:
         config_directory = pathlib.Path("/rotek/scripts/credentials").absolute()
         sys.path.append(str(config_directory))
-        from github_credentials import github_token, owner  # noqa
+        from github_credentials import github_token, owner  # type: ignore # noqa
 
 
 def enable_all_workflows(owner: str, github_token: str) -> None:
