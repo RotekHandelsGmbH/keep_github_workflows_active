@@ -13,14 +13,31 @@ import lib_log_utils
 import lib_detect_testenv
 
 # CONFIG
-if lib_detect_testenv.is_testenv_active():
-    if os.getenv('GITHUB_ACTION'):
-        owner = os.getenv('SECRET_GITHUB_OWNER')
-        github_token = os.getenv('SECRET_GITHUB_TOKEN')
+config_directory = pathlib.Path("/rotek/scripts/credentials").absolute()
+sys.path.append(str(config_directory))
+import github_credentials  # import github_token, owner  # type: ignore # noqa
+
+
+def get_owner() -> str:
+    if lib_detect_testenv.is_testenv_active():
+        if os.getenv('GITHUB_ACTION'):
+            owner = os.environ.get('SECRET_GITHUB_OWNER')
+        else:
+            owner = github_credentials.owner
     else:
-        config_directory = pathlib.Path("/rotek/scripts/credentials").absolute()
-        sys.path.append(str(config_directory))
-        from github_credentials import github_token, owner  # type: ignore # noqa
+        owner = github_credentials.owner
+    return owner
+
+
+def get_github_token() -> str:
+    if lib_detect_testenv.is_testenv_active():
+        if os.getenv('GITHUB_ACTION'):
+            github_token = os.environ.get('SECRET_GITHUB_TOKEN')
+        else:
+            github_token = github_credentials.github_token
+    else:
+        github_token = github_credentials.github_token
+    return github_token
 
 
 def enable_all_workflows(owner: str, github_token: str) -> None:
@@ -29,18 +46,22 @@ def enable_all_workflows(owner: str, github_token: str) -> None:
     :param github_token:
     :return:
 
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+
     >>> # Test OK
-    >>> enable_all_workflows(owner=owner, github_token=github_token)
+    >>> enable_all_workflows(owner=my_owner, github_token=my_github_token)
 
     >>> # unknown owner
-    >>> enable_all_workflows(owner='unknown_owner', github_token=github_token)
+    >>> enable_all_workflows(owner='unknown_owner', github_token=my_github_token)
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR reading repositories for user unknown_owner: Not Found
 
 
     >>> # wrong credentials
-    >>> enable_all_workflows(owner=owner, github_token='invalid_credentials')
+    >>> enable_all_workflows(owner=my_owner, github_token='invalid_credentials')
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR reading repositories for user bitranox: Bad credentials
@@ -59,18 +80,22 @@ def get_repositories(owner: str, github_token: str) -> List[str]:
     :param github_token:
     :return:
 
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+
     >>> # Test Ok
-    >>> get_repositories('bitranox', github_token)
+    >>> get_repositories(my_owner, my_github_token)
     ['...', ..., '...']
 
     >>> # Test user not existing
-    >>> get_repositories('user_does_not_exist', github_token)
+    >>> get_repositories('user_does_not_exist', my_github_token)
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR reading repositories for user user_does_not_exist: Not Found
 
     >>> # Test token not valid
-    >>> get_repositories('bitranox', 'invalid_token')
+    >>> get_repositories(my_owner, 'invalid_token')
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR reading repositories for user bitranox: Bad credentials
@@ -108,23 +133,24 @@ def get_workflows(owner: str, repository: str, github_token: str) -> List[str]:
     :return:
 
     >>> # Setup
-    >>> my_owner = 'bitranox'
-    >>> l_repositories = get_repositories(owner=my_owner, github_token=github_token)
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+    >>> l_repositories = get_repositories(owner=my_owner, github_token=my_github_token)
 
     >>> # Test OK
     >>> for my_repository in l_repositories:
-    ...     get_workflows(owner=my_owner, repository=my_repository, github_token=github_token)
+    ...     get_workflows(owner=my_owner, repository=my_repository, github_token=my_github_token)
     [...]
     ...
 
     >>> # wrong owner
-    >>> get_workflows(owner='does_not_exist', repository=l_repositories[0], github_token=github_token)
+    >>> get_workflows(owner='does_not_exist', repository=l_repositories[0], github_token=my_github_token)
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR reading repositories for user does_not_exist: Not Found
 
     >>> # wrong repository
-    >>> get_workflows(owner='bitranox', repository='unknown_repository', github_token=github_token)
+    >>> get_workflows(owner='bitranox', repository='unknown_repository', github_token=my_github_token)
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR reading repositories for user bitranox: Not Found
@@ -169,28 +195,32 @@ def enable_workflow(owner: str, repository: str, workflow_filename: str, github_
     :param workflow_filename:   the name of the workflow for instance "python-package.yml"
     :param github_token:        the gitHub access token which has permission to perform the desired action
 
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+
     >>> # Test OK
-    >>> enable_workflow(owner=owner, repository="lib_path", workflow_filename="python-package.yml", github_token=github_token)
+    >>> enable_workflow(owner=my_owner, repository="lib_path", workflow_filename="python-package.yml", github_token=my_github_token)
     'enabled repository lib_path, workflow python-package.yml'
 
     >>> # wrong owner
-    >>> enable_workflow(owner='owner_does_not_exist', repository="lib_path", workflow_filename="python-package.yml", github_token=github_token)
+    >>> enable_workflow(owner='owner_does_not_exist', repository="lib_path", workflow_filename="python-package.yml", github_token=my_github_token)
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR enabling repository lib_path, workflow python-package.yml: Not Found
 
     >>> # wrong repo
-    >>> enable_workflow(owner=owner, repository="repo_does_not_exist", workflow_filename="python-package.yml", github_token=github_token)
+    >>> enable_workflow(owner=my_owner, repository="repo_does_not_exist", workflow_filename="python-package.yml", github_token=my_github_token)
     Traceback (most recent call last):
         ...
     RuntimeError: ERROR enabling repository repo_does_not_exist, workflow python-package.yml: Not Found
 
 
-    >>> # wrong workflow
-    >>> enable_workflow(owner=owner, repository="lib_path", workflow_filename="workflow_does_not_exist", github_token="wrong_credentials")
+    >>> # wrong credentials
+    >>> enable_workflow(owner=my_owner, repository="lib_path", workflow_filename="python-package.yml", github_token="wrong_credentials")
     Traceback (most recent call last):
         ...
-    RuntimeError: ERROR enabling repository lib_path, workflow workflow_does_not_exist: Bad credentials
+    RuntimeError: ERROR enabling repository lib_path, workflow python-package.yml: Bad credentials
 
 
     """
@@ -230,7 +260,7 @@ def main() -> None:
     """
     # main}}}
 
-    enable_all_workflows(owner=owner, github_token=github_token)
+    enable_all_workflows(owner=get_owner(), github_token=get_github_token())
 
 
 if __name__ == '__main__':
