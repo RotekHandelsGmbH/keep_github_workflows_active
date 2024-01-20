@@ -178,7 +178,7 @@ def get_workflows(owner: str, repository: str, github_token: str) -> List[str]:
             data = response.read().decode("utf-8")
             dict_workflows = json.loads(data)
             l_dict_workflows = dict_workflows['workflows']
-            l_workflows = [pathlib.PosixPath(my_dict['path']).name for my_dict in l_dict_workflows]
+            l_workflows = [pathlib.Path(my_dict['path']).name for my_dict in l_dict_workflows]
         result = f'found {len(l_dict_workflows)} repositories for user {owner}, repository {repository}'
         lib_log_utils.log_info(result)
 
