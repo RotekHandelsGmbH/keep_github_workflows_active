@@ -13,9 +13,12 @@ import lib_log_utils
 import lib_detect_testenv
 
 # CONFIG
-config_directory = pathlib.Path("/rotek/scripts/credentials").absolute()
-sys.path.append(str(config_directory))
-import github_credentials  # import github_token, owner  # type: ignore # noqa
+try:
+    config_directory = pathlib.Path("/rotek/scripts/credentials").absolute()
+    sys.path.append(str(config_directory))
+    import github_credentials  # import github_token, owner  # type: ignore # noqa
+except ModuleNotFoundError:
+    pass
 
 
 def get_owner() -> str:
