@@ -2,7 +2,7 @@
 import os
 import pathlib
 import sys
-from typing import List
+from typing import Any, Dict, List, Tuple
 
 # EXT
 import requests
@@ -38,7 +38,7 @@ def get_github_token() -> str:
     return github_token
 
 
-def read_github_credentials(config_directory: str) -> tuple:
+def read_github_credentials(config_directory: str) -> tuple[str, str]:
     """
     Reads GitHub credentials from a Python file and returns them.
 
@@ -46,7 +46,7 @@ def read_github_credentials(config_directory: str) -> tuple:
     :return: A tuple containing (owner, github_token).
     """
     credentials_path = pathlib.Path(config_directory) / "github_credentials.py"
-    namespace = {}
+    namespace: Dict[str, Any] = {}
 
     try:
         with open(credentials_path, 'r') as file:
@@ -250,7 +250,7 @@ def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_r
             delete_workflow_run(owner=owner, repository=repository, github_token=github_token, run_id_to_delete=run_id_to_delete)
 
 
-def get_workflow_runs(owner: str, repository: str, github_token: str) -> list:
+def get_workflow_runs(owner: str, repository: str, github_token: str) -> List[str]:
     """
     Fetch all workflow runs for a GitHub repository using the GitHub API v3, handling pagination.
 
