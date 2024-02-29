@@ -2,7 +2,7 @@ keep_github_workflows_active
 ============================
 
 
-Version v1.0.0 as of 2024-01-20 see `Changelog`_
+Version v1.1.0 as of 2024-03-01 see `Changelog`_
 
 |build_badge| |codeql| |license| |jupyter| |pypi|
 |pypi-downloads| |black| |codecov| |cc_maintain| |cc_issues| |cc_coverage| |snyk|
@@ -54,7 +54,15 @@ Version v1.0.0 as of 2024-01-20 see `Changelog`_
    :target: https://pypi.org/project/keep-github-workflows-active/
    :alt: PyPI - Downloads
 
-To ensure the continuous activation of all workflows and prevent expiration, please follow the steps below:
+GitHub Workflow Management Script
+==================================
+
+This manual guides you through the execution of a Python script designed to manage GitHub workflows across all repositories of a user. The script performs two main functions:
+
+1. **Keep All Workflows Active**: Ensures that all workflows in each repository of the user remain in an active state.
+
+2. **Delete Old Workflow Runs**: For each repository, this function retains a specified number of the most recent workflow runs and deletes all older runs.
+
 
 Access Key
 -----------
@@ -99,9 +107,9 @@ automated tests, Github Actions, Documentation, Badges, etc. are managed with `P
 
 Python version required: 3.8.0 or newer
 
-tested on recent linux with python 3.8, 3.12 - architectures: amd64
+tested on recent linux with python 3.12 - architectures: amd64
 
-`100% code coverage <https://codeclimate.com/github/bitranox/keep_github_workflows_active/test_coverage>`_, flake8 style checking ,mypy static type checking ,tested under `Linux, macOS, Windows <https://github.com/bitranox/keep_github_workflows_active/actions/workflows/python-package.yml>`_, automatic daily builds and monitoring
+`100% code coverage <https://codeclimate.com/github/bitranox/keep_github_workflows_active/test_coverage>`_, flake8 style checking ,mypy static type checking ,tested under `Linux <https://github.com/bitranox/keep_github_workflows_active/actions/workflows/python-package.yml>`_, automatic daily builds and monitoring
 
 ----
 
@@ -136,7 +144,9 @@ Usage
     def main() -> None:
         """
         enable all workflows in all repositories for the given owner
-        >>> main()
+        >>> # we actually dont do that here AGAIN because of GitHub Rate limits
+        >>> # those functions are called anyway already by doctest
+        >>> # main()
 
         """
 
@@ -160,13 +170,12 @@ Usage from Commandline
 Installation and Upgrade
 ------------------------
 
-- Before You start, its highly recommended to update pip and setup tools:
+- Before You start, its highly recommended to update pip:
 
 
 .. code-block::
 
     python -m pip --upgrade pip
-    python -m pip --upgrade setuptools
 
 - to install the latest release from PyPi via pip (recommended):
 
@@ -247,6 +256,7 @@ following modules will be automatically installed :
     lib_detect_testenv
     lib_log_utils
     toml
+    requests
 
 Acknowledgements
 ----------------
@@ -272,6 +282,17 @@ Changelog
 - new MAJOR version for incompatible API changes,
 - new MINOR version for added functionality in a backwards compatible manner
 - new PATCH version for backwards compatible bug fixes
+
+
+v1.1.0
+--------
+2024-02-29:
+    - disable windows and osx tests to avoid hitting API limits
+    - omit mypy option --no-implicit-reexport
+    - github actions/checkout@v4
+    - github actions/setup-python@v5
+    - use requests instead of urllib
+    - delete old Workflow runs
 
 v1.0.0
 --------

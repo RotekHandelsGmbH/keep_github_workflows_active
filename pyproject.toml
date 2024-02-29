@@ -30,9 +30,10 @@ dependencies = [
     "click",
     "lib_detect_testenv",
     "lib_log_utils",
+    "requests",
     "toml",
 ]
-version = "v1.0.0"
+version = "v1.1.0"
 # seems to be not allowed anymore
 # zip-save = false
 

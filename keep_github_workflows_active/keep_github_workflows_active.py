@@ -1,24 +1,19 @@
 # STDLIB
-import json
 import os
 import pathlib
 import sys
-from typing import List, Dict
-import urllib.request
-from urllib.error import HTTPError
-from urllib.parse import quote
+from typing import List
+
+# EXT
+import requests
 
 # OWN
 import lib_log_utils
 import lib_detect_testenv
 
 # CONFIG
-try:
-    config_directory = pathlib.Path("/rotek/scripts/credentials").absolute()
-    sys.path.append(str(config_directory))
-    import github_credentials  # import github_token, owner  # type: ignore # noqa
-except ModuleNotFoundError:
-    pass
+
+rotek_config_directory = str(pathlib.Path("/rotek/scripts/credentials").absolute())
 
 
 def get_owner() -> str:
@@ -26,9 +21,9 @@ def get_owner() -> str:
         if os.getenv('GITHUB_ACTION'):
             owner = os.environ.get('SECRET_GITHUB_OWNER')
         else:
-            owner = github_credentials.owner
+            owner, github_token = read_github_credentials(config_directory=rotek_config_directory)
     else:
-        owner = github_credentials.owner
+        owner, github_token = read_github_credentials(config_directory=rotek_config_directory)
     return owner
 
 
@@ -37,10 +32,35 @@ def get_github_token() -> str:
         if os.getenv('GITHUB_ACTION'):
             github_token = os.environ.get('SECRET_GITHUB_TOKEN')
         else:
-            github_token = github_credentials.github_token
+            owner, github_token = read_github_credentials(config_directory=rotek_config_directory)
     else:
-        github_token = github_credentials.github_token
+        owner, github_token = read_github_credentials(config_directory=rotek_config_directory)
     return github_token
+
+
+def read_github_credentials(config_directory: str) -> tuple:
+    """
+    Reads GitHub credentials from a Python file and returns them.
+
+    :param config_directory: The path to the directory containing the 'github_credentials.py' file.
+    :return: A tuple containing (owner, github_token).
+    """
+    credentials_path = pathlib.Path(config_directory) / "github_credentials.py"
+    namespace = {}
+
+    try:
+        with open(credentials_path, 'r') as file:
+            exec(file.read(), {}, namespace)
+        # Access the variables 'github_token' and 'owner' in the namespace dictionary
+        github_token = namespace.get('github_token')
+        owner = namespace.get('owner')
+        if github_token is None or owner is None:
+            raise ValueError("Required variables 'github_token' or 'owner' were not found.")
+        return owner, github_token
+    except FileNotFoundError:
+        print(f"File could not be found. Check the path: {credentials_path}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 def enable_all_workflows(owner: str, github_token: str) -> None:
@@ -79,11 +99,13 @@ def enable_all_workflows(owner: str, github_token: str) -> None:
 
 def get_repositories(owner: str, github_token: str) -> List[str]:
     """
-    :param owner:   the username of the repository owner
-    :param github_token:
-    :return:
+    Fetch all repositories for a given GitHub user, handling pagination and setting the page size to 100.
 
-    >>> # Setup
+    :param owner: The username of the repository owner.
+    :param github_token: A personal access token for GitHub API authentication.
+    :return: A list of repository names.
+
+        >>> # Setup
     >>> my_owner = get_owner()
     >>> my_github_token = get_github_token()
 
@@ -105,35 +127,43 @@ def get_repositories(owner: str, github_token: str) -> List[str]:
 
 
     """
-    url = f"https://api.github.com/users/{owner}/repos"
+    repositories = []
+    url = f"https://api.github.com/users/{owner}/repos?per_page=100"
     headers = {
         "Authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github.v3+json"
     }
-    l_repositories: List[str]
-    try:
-        request = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(request) as response:
-            data = response.read().decode("utf-8")
-            l_dict_repositories: List[Dict[str, str]] = json.loads(data)
-        l_repositories = [my_dict['name'] for my_dict in l_dict_repositories]
-        result = f'found {len(l_repositories)} repositories for user {owner}'
-        lib_log_utils.log_info(result)
-    except HTTPError as exc:
-        result_json = json.loads(exc.read().decode("utf-8"))
-        result_error_message = result_json.get("message", "Error")
-        result = f'ERROR reading repositories for user {owner}: {result_error_message}'
-        lib_log_utils.log_error(result)
-        raise RuntimeError(result)
-    return l_repositories
+
+    while url:
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            data = response.json()
+            repositories.extend([repo['name'] for repo in data])
+
+            # Get the URL for the next page from the response headers, if present
+            url = response.links.get('next', {}).get('url', None)
+
+        except requests.exceptions.HTTPError as exc:
+            error_message = exc.response.json().get("message", "Error")
+            result = f'ERROR reading repositories for user {owner}: {error_message}'
+            lib_log_utils.log_error(result)
+            raise RuntimeError(result) from exc
+
+    result = f'Found {len(repositories)} repositories for user {owner}'
+    lib_log_utils.log_info(result)
+    return repositories
 
 
 def get_workflows(owner: str, repository: str, github_token: str) -> List[str]:
     """
-    :param owner:   the username of the repository owner
-    :param repository:
-    :param github_token:
-    :return:
+    Fetch all workflows for a given GitHub repository, handling pagination and setting the page size to 100.
+
+    :param owner: The username of the repository owner.
+    :param repository: The name of the repository.
+    :param github_token: A personal access token for GitHub API authentication.
+    :return: A list of workflow names.
+
 
     >>> # Setup
     >>> my_owner = get_owner()
@@ -150,53 +180,169 @@ def get_workflows(owner: str, repository: str, github_token: str) -> List[str]:
     >>> get_workflows(owner='does_not_exist', repository=l_repositories[0], github_token=my_github_token)
     Traceback (most recent call last):
         ...
-    RuntimeError: ERROR reading repositories for user does_not_exist: Not Found
+    RuntimeError: ERROR reading workflows for user: ..., repository: ..., Not Found
 
     >>> # wrong repository
     >>> get_workflows(owner='bitranox', repository='unknown_repository', github_token=my_github_token)
     Traceback (most recent call last):
         ...
-    RuntimeError: ERROR reading repositories for user bitranox: Not Found
+    RuntimeError: ERROR reading workflows for user: ..., repository: unknown_repository, Not Found
 
     >>> # token not valid
     >>> get_workflows(owner='bitranox', repository=l_repositories[0], github_token='invalid_token')
     Traceback (most recent call last):
         ...
-    RuntimeError: ERROR reading repositories for user bitranox: Bad credentials
+    RuntimeError: ERROR reading workflows for user: ..., repository: ..., Bad credentials
+
 
     """
-    url = f"https://api.github.com/repos/{owner}/{repository}/actions/workflows"
+    workflows = []
+    url = f"https://api.github.com/repos/{owner}/{repository}/actions/workflows?per_page=100"
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    while url:
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            data = response.json()
+            workflows.extend([pathlib.Path(workflow['path']).name for workflow in data.get('workflows', [])])
+
+            # Get the URL for the next page from the response headers, if present
+            url = response.links.get('next', {}).get('url', None)
+
+        except requests.exceptions.HTTPError as exc:
+            error_message = exc.response.json().get("message", "Error")
+            result = f'ERROR reading workflows for user: {owner}, repository: {repository}, {error_message}'
+            lib_log_utils.log_error(result)
+            raise RuntimeError(result) from exc
+
+    result = f'Found {len(workflows)} workflows for user: {owner}, repository: {repository}'
+    lib_log_utils.log_info(result)
+    return workflows
+
+
+def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_runs_to_keep: int = 50) -> None:
+    """
+    :param owner:
+    :param github_token:
+    :param number_of_workflow_runs_to_keep:
+    :return:
+
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+
+    >>> # Test
+    >>> delete_old_workflow_runs(owner=my_owner, github_token=my_github_token, number_of_workflow_runs_to_keep=50)
+
+    """
+
+    l_repositories = get_repositories(owner=owner, github_token=github_token)
+    for repository in l_repositories:
+        workflow_run_ids = get_workflow_runs(owner=owner, repository=repository, github_token=github_token)
+        workflow_run_ids_sorted = sorted(workflow_run_ids, reverse=True)
+        workflow_run_ids_to_delete = workflow_run_ids_sorted[number_of_workflow_runs_to_keep:]
+        lib_log_utils.log_info(f'repository: {repository}, {len(workflow_run_ids)} workflow runs found, {len(workflow_run_ids_to_delete)} to delete.')
+        for run_id_to_delete in workflow_run_ids_to_delete:
+            delete_workflow_run(owner=owner, repository=repository, github_token=github_token, run_id_to_delete=run_id_to_delete)
+
+
+def get_workflow_runs(owner: str, repository: str, github_token: str) -> list:
+    """
+    Fetch all workflow runs for a GitHub repository using the GitHub API v3, handling pagination.
+
+    :param owner: The username of the repository owner.
+    :param repository: The name of the repository.
+    :param github_token: A GitHub personal access token for authentication.
+    :return: A list of workflow run IDs.
+
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+    >>> l_repositories = get_repositories(owner=my_owner, github_token=my_github_token)
+
+    >>> # Test OK
+    >>> for my_repository in l_repositories:
+    ...     get_workflow_runs(owner=my_owner, repository=my_repository, github_token=my_github_token)
+    [...]
+    ...
+
+
+    """
+    # set pagination to 100 (the maximum at GitHub), to have fewer requests
+    url = f"https://api.github.com/repos/{owner}/{repository}/actions/runs?per_page=100"
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    l_workflow_run_ids = []
+    while url:
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()  # Raises an HTTPError if the response was an error
+
+            # Process response data
+            data = response.json()
+            l_workflow_run_ids.extend([run['id'] for run in data.get('workflow_runs', [])])
+
+            # Check for the 'next' page link
+            url = response.links.get('next', {}).get('url', None)
+
+        except requests.exceptions.HTTPError as exc:
+            result_error_message = exc.response.json().get("message", "Error")
+            result = f'ERROR reading workflow runs for user: {owner}, repository: {repository}, {result_error_message}'
+            lib_log_utils.log_error(result)
+            raise RuntimeError(result) from exc
+
+    result = f'Found {len(l_workflow_run_ids)} workflow runs for user: {owner}, repository: {repository}'
+    lib_log_utils.log_info(result)
+    return l_workflow_run_ids
+
+
+def delete_workflow_run(owner: str, repository: str, github_token: str, run_id_to_delete: str) -> None:
+    """
+    Delete a specified workflow run for a GitHub repository.
+
+    :param owner: The username of the repository owner.
+    :param repository: The name of the repository.
+    :param github_token: A personal access token for GitHub API authentication.
+    :param run_id_to_delete: The ID of the workflow run to delete.
+    :return: None
+    """
+    url = f"https://api.github.com/repos/{owner}/{repository}/actions/runs/{run_id_to_delete}"
     headers = {
         "Authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github.v3+json"
     }
 
     try:
-        # Make the API request
-        request = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(request) as response:
-            data = response.read().decode("utf-8")
-            dict_workflows = json.loads(data)
-            l_dict_workflows = dict_workflows['workflows']
-            l_workflows = [pathlib.Path(my_dict['path']).name for my_dict in l_dict_workflows]
-        result = f'found {len(l_dict_workflows)} repositories for user {owner}, repository {repository}'
-        lib_log_utils.log_info(result)
+        response = requests.delete(url, headers=headers)
 
-    except HTTPError as exc:
-        result_json = json.loads(exc.read().decode("utf-8"))
-        result_error_message = result_json.get("message", "Error")
-        result = f'ERROR reading repositories for user {owner}: {result_error_message}'
-        lib_log_utils.log_error(result)
-        raise RuntimeError(result)
-    return l_workflows
+        if response.status_code == 204:
+            result = f'Deleted workflow run ID: {run_id_to_delete} for user: {owner}, repository: {repository}'
+            lib_log_utils.log_info(result)
+
+    except requests.exceptions.RequestException as exc:
+        # For HTTP errors, requests will raise a RequestException. Here we catch all errors derived from RequestException
+        result_error_message = f'ERROR deleting workflow run ID: {run_id_to_delete} for user: {owner}, repository: {repository}: {exc}'
+        lib_log_utils.log_error(result_error_message)
+        raise RuntimeError(result_error_message) from exc
 
 
 def enable_workflow(owner: str, repository: str, workflow_filename: str, github_token: str) -> str:
     """
-    :param owner:               the username of the repository owner
-    :param repository:          the name of the repository
-    :param workflow_filename:   the name of the workflow for instance "python-package.yml"
-    :param github_token:        the gitHub access token which has permission to perform the desired action
+    Enable a workflow in a GitHub repository using the GitHub API.
+
+    :param owner: The username of the repository owner.
+    :param repository: The name of the repository.
+    :param workflow_filename: The name of the workflow file, for example, "python-package.yml".
+    :param github_token: A GitHub access token with permissions to enable workflows.
+    :return: A success message if the workflow is enabled.
+
 
     >>> # Setup
     >>> my_owner = get_owner()
@@ -204,7 +350,7 @@ def enable_workflow(owner: str, repository: str, workflow_filename: str, github_
 
     >>> # Test OK
     >>> enable_workflow(owner=my_owner, repository="lib_path", workflow_filename="python-package.yml", github_token=my_github_token)
-    'enabled repository lib_path, workflow python-package.yml'
+    'Enabled repository lib_path, workflow python-package.yml'
 
     >>> # wrong owner
     >>> enable_workflow(owner='owner_does_not_exist', repository="lib_path", workflow_filename="python-package.yml", github_token=my_github_token)
@@ -227,43 +373,40 @@ def enable_workflow(owner: str, repository: str, workflow_filename: str, github_
 
 
     """
+    url = f"https://api.github.com/repos/{owner}/{repository}/actions/workflows/{workflow_filename}/enable"
 
-    # API endpoint UR
-    url = f"https://api.github.com/repos/{owner}/{repository}/actions/workflows/{quote(workflow_filename)}/enable"
-
-    # Request headers
     headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {github_token}",
-        "X-GitHub-Api-Version": "2022-11-28"
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"Bearer {github_token}"
     }
 
-    # Prepare the request
-    request = urllib.request.Request(url, headers=headers, method="PUT")
     try:
-        urllib.request.urlopen(request)
-        result = f'enabled repository {repository}, workflow {workflow_filename}'
+        response = requests.put(url, headers=headers)
+        response.raise_for_status()  # This will raise an exception for HTTP error codes
+        result = f'Enabled repository {repository}, workflow {workflow_filename}'
         lib_log_utils.log_info(result)
+        return result
 
-    except HTTPError as exc:
-        result_json = json.loads(exc.read().decode("utf-8"))
-        result_error_message = result_json.get("message", "Error")
-        result = f'ERROR enabling repository {repository}, workflow {workflow_filename}: {result_error_message}'
-        raise RuntimeError(result)
-
-    return result
+    except requests.exceptions.HTTPError as exc:
+        error_message = response.json().get("message", "Error")     # noqa
+        result = f'ERROR enabling repository {repository}, workflow {workflow_filename}: {error_message}'
+        lib_log_utils.log_error(result)
+        raise RuntimeError(result) from exc
 
 
 # main{{{
 def main() -> None:
     """
     enable all workflows in all repositories for the given owner
-    >>> main()
+    >>> # we actually dont do that here AGAIN because of GitHub Rate limits
+    >>> # those functions are called anyway already by doctest
+    >>> # main()
 
     """
     # main}}}
 
     enable_all_workflows(owner=get_owner(), github_token=get_github_token())
+    delete_old_workflow_runs(owner=get_owner(), github_token=get_github_token(), number_of_workflow_runs_to_keep=50)
 
 
 if __name__ == '__main__':

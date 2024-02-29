@@ -2,7 +2,7 @@ keep_github_workflows_active
 ============================
 
 
-Version v1.0.0 as of 2024-01-20 see `Changelog`_
+Version v1.1.0 as of 2024-03-01 see `Changelog`_
 
 
 .. include:: ./badges.rst
