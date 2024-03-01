@@ -28,8 +28,7 @@ def enable_all_workflows(owner: str, github_token: str) -> None:
 
     >>> # Test OK
     >>> enable_all_workflows(owner=my_owner, github_token=my_github_token)
-     Activating and maintaining all workflows for owner ...:
-     ...
+     Activating and maintaining all workflows for owner ...
 
     >>> # unknown owner
     >>> enable_all_workflows(owner='unknown_owner', github_token=my_github_token)
@@ -67,8 +66,7 @@ def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_r
 
     >>> # Test
     >>> delete_old_workflow_runs(owner=my_owner, github_token=my_github_token, number_of_workflow_runs_to_keep=50)
-    Removing outdated workflow executions for owner ..., while retaining a maximum of ... workflow runs per repository:
-    ...
+    Removing outdated workflow executions for owner ..., while retaining a maximum of ... workflow runs per repository...
 
     """
     print(f'Removing outdated workflow executions for owner {owner}, while retaining a maximum of '
