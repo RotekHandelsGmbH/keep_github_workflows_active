@@ -144,7 +144,7 @@ Usage
     def main() -> None:
         """
         enable all workflows in all repositories for the given owner
-        >>> # we actually dont do that here AGAIN because of GitHub Rate limits
+        >>> # we actually don't do that here AGAIN because of GitHub Rate limits
         >>> # those functions are called anyway already by doctest
         >>> # main()
 
