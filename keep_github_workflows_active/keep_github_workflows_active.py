@@ -71,7 +71,8 @@ def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_r
     ...
 
     """
-    print(f'Removing outdated workflow executions for owner {owner}, while retaining a maximum of {number_of_workflow_runs_to_keep} workflow runs per repository:')
+    print(f'Removing outdated workflow executions for owner {owner}, while retaining a maximum of '
+          f'{number_of_workflow_runs_to_keep} workflow runs per repository:')
     l_repositories = get_repositories(owner=owner, github_token=github_token)
     for repository in l_repositories:
         workflow_run_ids = get_workflow_runs(owner=owner, repository=repository, github_token=github_token)
