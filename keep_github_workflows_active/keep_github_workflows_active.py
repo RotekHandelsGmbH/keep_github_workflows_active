@@ -2,7 +2,7 @@
 import os
 import pathlib
 import sys
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 # EXT
 import requests
@@ -18,7 +18,7 @@ rotek_config_directory = str(pathlib.Path("/rotek/scripts/credentials").absolute
 
 def enable_all_workflows(owner: str, github_token: str) -> None:
     """
-    :param owner:
+    :param owner: the repo owner
     :param github_token:
     :return:
 
@@ -407,7 +407,7 @@ def enable_workflow(owner: str, repository: str, workflow_filename: str, github_
 def main() -> None:
     """
     enable all workflows in all repositories for the given owner
-    >>> # we actually dont do that here AGAIN because of GitHub Rate limits
+    >>> # we actually don't do that here AGAIN because of GitHub Rate limits
     >>> # those functions are called anyway already by doctest
     >>> # main()
 
