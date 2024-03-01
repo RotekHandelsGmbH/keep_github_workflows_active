@@ -47,7 +47,8 @@ def read_github_credentials(config_directory: str) -> tuple[str, str]:
     """
     credentials_path = pathlib.Path(config_directory) / "github_credentials.py"
     namespace: Dict[str, Any] = {}
-
+    owner = ""
+    github_token = ""
     try:
         with open(credentials_path, 'r') as file:
             exec(file.read(), {}, namespace)
@@ -56,11 +57,12 @@ def read_github_credentials(config_directory: str) -> tuple[str, str]:
         owner = namespace.get('owner')
         if github_token is None or owner is None:
             raise ValueError("Required variables 'github_token' or 'owner' were not found.")
-        return owner, github_token
+
     except FileNotFoundError:
         print(f"File could not be found. Check the path: {credentials_path}")
     except Exception as e:
         print(f"An error occurred: {e}")
+    return owner, github_token
 
 
 def enable_all_workflows(owner: str, github_token: str) -> None:
