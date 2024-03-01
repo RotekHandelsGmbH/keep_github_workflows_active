@@ -76,8 +76,9 @@ def enable_all_workflows(owner: str, github_token: str) -> None:
     >>> my_github_token = get_github_token()
 
     >>> # Test OK
-    >>> # ignore the printed output
-    >>> ignore = None is enable_all_workflows(owner=my_owner, github_token=my_github_token)
+    >>> enable_all_workflows(owner=my_owner, github_token=my_github_token)
+     enabling workflow ...
+     ...
 
     >>> # unknown owner
     >>> enable_all_workflows(owner='unknown_owner', github_token=my_github_token)
@@ -97,8 +98,8 @@ def enable_all_workflows(owner: str, github_token: str) -> None:
     for repository in repositories:
         workflows = get_workflows(owner=owner, repository=repository, github_token=github_token)
         for workflow_filename in workflows:
+            print(f'enabling workflow {repository}/{workflow_filename}')
             enable_workflow(owner=owner, repository=repository, workflow_filename=workflow_filename, github_token=github_token)
-            print(f'enabled workflow {repository}/{workflow_filename}')
 
 
 def get_repositories(owner: str, github_token: str) -> List[str]:
@@ -240,8 +241,9 @@ def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_r
     >>> my_github_token = get_github_token()
 
     >>> # Test
-    >>> # ignore the printed output
-    >>> ignore = None is delete_old_workflow_runs(owner=my_owner, github_token=my_github_token, number_of_workflow_runs_to_keep=50)
+    >>> delete_old_workflow_runs(owner=my_owner, github_token=my_github_token, number_of_workflow_runs_to_keep=50)
+    deleting Workflow Run ...
+    ...
 
     """
 
@@ -252,8 +254,8 @@ def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_r
         workflow_run_ids_to_delete = workflow_run_ids_sorted[number_of_workflow_runs_to_keep:]
         lib_log_utils.log_info(f'repository: {repository}, {len(workflow_run_ids)} workflow runs found, {len(workflow_run_ids_to_delete)} to delete.')
         for run_id_to_delete in workflow_run_ids_to_delete:
+            print(f'deleting Workflow Run {repository}/{run_id_to_delete}')
             delete_workflow_run(owner=owner, repository=repository, github_token=github_token, run_id_to_delete=run_id_to_delete)
-            print(f'deleted Workflow Run {repository}/{run_id_to_delete}')
 
 
 def get_workflow_runs(owner: str, repository: str, github_token: str) -> List[str]:
