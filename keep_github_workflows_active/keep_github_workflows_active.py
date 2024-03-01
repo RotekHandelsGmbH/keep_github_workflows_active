@@ -16,6 +16,73 @@ import lib_detect_testenv
 rotek_config_directory = str(pathlib.Path("/rotek/scripts/credentials").absolute())
 
 
+def enable_all_workflows(owner: str, github_token: str) -> None:
+    """
+    :param owner:
+    :param github_token:
+    :return:
+
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+
+    >>> # Test OK
+    >>> enable_all_workflows(owner=my_owner, github_token=my_github_token)
+     Activating and maintaining all workflows for owner ...:
+     ...
+
+    >>> # unknown owner
+    >>> enable_all_workflows(owner='unknown_owner', github_token=my_github_token)
+    Traceback (most recent call last):
+        ...
+    RuntimeError: ERROR reading repositories for user unknown_owner: Not Found
+
+
+    >>> # wrong credentials
+    >>> enable_all_workflows(owner=my_owner, github_token='invalid_credentials')
+    Traceback (most recent call last):
+        ...
+    RuntimeError: ERROR reading repositories for user bitranox: Bad credentials
+
+    """
+    print(f'Activating and maintaining all workflows for owner {owner}:')
+    repositories = get_repositories(owner=owner, github_token=github_token)
+    for repository in repositories:
+        workflows = get_workflows(owner=owner, repository=repository, github_token=github_token)
+        for workflow_filename in workflows:
+            print(f'activate workflow {repository}/{workflow_filename}')
+            enable_workflow(owner=owner, repository=repository, workflow_filename=workflow_filename, github_token=github_token)
+
+
+def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_runs_to_keep: int = 50) -> None:
+    """
+    :param owner:
+    :param github_token:
+    :param number_of_workflow_runs_to_keep:
+    :return:
+
+    >>> # Setup
+    >>> my_owner = get_owner()
+    >>> my_github_token = get_github_token()
+
+    >>> # Test
+    >>> delete_old_workflow_runs(owner=my_owner, github_token=my_github_token, number_of_workflow_runs_to_keep=50)
+    Removing outdated workflow executions for owner ..., while retaining a maximum of ... workflow runs per repository:
+    ...
+
+    """
+    print(f'Removing outdated workflow executions for owner {owner}, while retaining a maximum of {number_of_workflow_runs_to_keep} workflow runs per repository:')
+    l_repositories = get_repositories(owner=owner, github_token=github_token)
+    for repository in l_repositories:
+        workflow_run_ids = get_workflow_runs(owner=owner, repository=repository, github_token=github_token)
+        workflow_run_ids_sorted = sorted(workflow_run_ids, reverse=True)
+        workflow_run_ids_to_delete = workflow_run_ids_sorted[number_of_workflow_runs_to_keep:]
+        lib_log_utils.log_info(f'repository: {repository}, {len(workflow_run_ids)} workflow runs found, {len(workflow_run_ids_to_delete)} to delete.')
+        for run_id_to_delete in workflow_run_ids_to_delete:
+            print(f'remove workflow run {repository}/{run_id_to_delete}')
+            delete_workflow_run(owner=owner, repository=repository, github_token=github_token, run_id_to_delete=run_id_to_delete)
+
+
 def get_owner() -> str:
     if lib_detect_testenv.is_testenv_active():
         if os.getenv('GITHUB_ACTION'):
@@ -63,43 +130,6 @@ def read_github_credentials(config_directory: str) -> tuple[str, str]:
     except Exception as e:
         print(f"An error occurred: {e}")
     return owner, github_token
-
-
-def enable_all_workflows(owner: str, github_token: str) -> None:
-    """
-    :param owner:
-    :param github_token:
-    :return:
-
-    >>> # Setup
-    >>> my_owner = get_owner()
-    >>> my_github_token = get_github_token()
-
-    >>> # Test OK
-    >>> enable_all_workflows(owner=my_owner, github_token=my_github_token)
-     enabling workflow ...
-     ...
-
-    >>> # unknown owner
-    >>> enable_all_workflows(owner='unknown_owner', github_token=my_github_token)
-    Traceback (most recent call last):
-        ...
-    RuntimeError: ERROR reading repositories for user unknown_owner: Not Found
-
-
-    >>> # wrong credentials
-    >>> enable_all_workflows(owner=my_owner, github_token='invalid_credentials')
-    Traceback (most recent call last):
-        ...
-    RuntimeError: ERROR reading repositories for user bitranox: Bad credentials
-
-    """
-    repositories = get_repositories(owner=owner, github_token=github_token)
-    for repository in repositories:
-        workflows = get_workflows(owner=owner, repository=repository, github_token=github_token)
-        for workflow_filename in workflows:
-            print(f'enabling workflow {repository}/{workflow_filename}')
-            enable_workflow(owner=owner, repository=repository, workflow_filename=workflow_filename, github_token=github_token)
 
 
 def get_repositories(owner: str, github_token: str) -> List[str]:
@@ -227,35 +257,6 @@ def get_workflows(owner: str, repository: str, github_token: str) -> List[str]:
     result = f'Found {len(workflows)} workflows for user: {owner}, repository: {repository}'
     lib_log_utils.log_info(result)
     return workflows
-
-
-def delete_old_workflow_runs(owner: str, github_token: str, number_of_workflow_runs_to_keep: int = 50) -> None:
-    """
-    :param owner:
-    :param github_token:
-    :param number_of_workflow_runs_to_keep:
-    :return:
-
-    >>> # Setup
-    >>> my_owner = get_owner()
-    >>> my_github_token = get_github_token()
-
-    >>> # Test
-    >>> delete_old_workflow_runs(owner=my_owner, github_token=my_github_token, number_of_workflow_runs_to_keep=50)
-    deleting Workflow Run ...
-    ...
-
-    """
-
-    l_repositories = get_repositories(owner=owner, github_token=github_token)
-    for repository in l_repositories:
-        workflow_run_ids = get_workflow_runs(owner=owner, repository=repository, github_token=github_token)
-        workflow_run_ids_sorted = sorted(workflow_run_ids, reverse=True)
-        workflow_run_ids_to_delete = workflow_run_ids_sorted[number_of_workflow_runs_to_keep:]
-        lib_log_utils.log_info(f'repository: {repository}, {len(workflow_run_ids)} workflow runs found, {len(workflow_run_ids_to_delete)} to delete.')
-        for run_id_to_delete in workflow_run_ids_to_delete:
-            print(f'deleting Workflow Run {repository}/{run_id_to_delete}')
-            delete_workflow_run(owner=owner, repository=repository, github_token=github_token, run_id_to_delete=run_id_to_delete)
 
 
 def get_workflow_runs(owner: str, repository: str, github_token: str) -> List[str]:
